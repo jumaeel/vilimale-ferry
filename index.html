@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vilimalé Ferry — Next Departure</title>
+<style>
+  :root{
+    --navy:#2b1f6b;
+    --blue:#1374c0;
+    --blue-light:#e7f1fb;
+    --ink:#16213a;
+    --muted:#6a7690;
+    --bg:#f3f6fb;
+    --card:#ffffff;
+    --good:#0f9d58;
+    --warn:#d23f3f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#eaf2fb 0%,var(--bg) 320px);
+    color:var(--ink);
+    min-height:100vh;
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  header{text-align:center;margin-bottom:8px}
+  .badge{
+    display:inline-block;background:var(--navy);color:#fff;font-weight:700;
+    padding:8px 20px;border-radius:10px;letter-spacing:.3px;font-size:15px;
+  }
+  h1{font-size:22px;margin:14px 0 2px;color:var(--navy)}
+  .route{color:var(--muted);font-size:14px;margin-bottom:18px}
+
+  .clock{
+    background:var(--blue);color:#fff;border-radius:16px;padding:18px 20px;
+    text-align:center;margin-bottom:18px;box-shadow:0 8px 24px rgba(19,116,192,.25);
+  }
+  .clock .date{font-size:15px;opacity:.92}
+  .clock .time{font-size:40px;font-weight:700;letter-spacing:1px;font-variant-numeric:tabular-nums}
+  .clock .day{font-size:13px;opacity:.9;margin-top:2px}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:560px){.cards{grid-template-columns:1fr}}
+  .card{
+    background:var(--card);border-radius:16px;padding:18px;
+    box-shadow:0 4px 16px rgba(20,40,80,.07);border:1px solid #e6ecf5;
+  }
+  .card h2{font-size:14px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .card .from{font-size:19px;font-weight:700;color:var(--navy);margin:2px 0 12px}
+  .next-time{font-size:44px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums;line-height:1}
+  .countdown{margin-top:6px;font-size:15px;font-weight:600;color:var(--good)}
+  .countdown.soon{color:var(--warn)}
+  .upcoming{margin-top:14px;border-top:1px solid #eef2f8;padding-top:12px}
+  .upcoming .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .upcoming .times{display:flex;flex-wrap:wrap;gap:8px}
+  .pill{background:var(--blue-light);color:var(--blue);font-weight:600;font-size:13px;padding:5px 10px;border-radius:8px;font-variant-numeric:tabular-nums}
+  .closed{color:var(--warn);font-size:15px;font-weight:600;margin-top:8px}
+
+  footer{margin-top:24px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
+  footer .freq{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="badge">Ferry Schedule</span>
+    <h1>Vilimalé Ferry</h1>
+    <div class="route">Malé ⇄ Vilimalé · MTCC</div>
+  </header>
+
+  <div class="clock">
+    <div class="date" id="date">—</div>
+    <div class="time" id="time">--:--:--</div>
+    <div class="day" id="daytype">—</div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h2>Next ferry</h2>
+      <div class="from">From Malé →</div>
+      <div class="next-time" id="male-next">--:--</div>
+      <div class="countdown" id="male-count">—</div>
+      <div class="upcoming">
+        <div class="label">Then</div>
+        <div class="times" id="male-upcoming"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Next ferry</h2>
+      <div class="from">From Vilimalé →</div>
+      <div class="next-time" id="vili-next">--:--</div>
+      <div class="countdown" id="vili-count">—</div>
+      <div class="upcoming">
+        <div class="label">Then</div>
+        <div class="times" id="vili-upcoming"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>Current frequency: <span class="freq" id="freqnow">—</span></div>
+    <div style="margin-top:8px">Times shown in Maldives time (UTC+5). Public holidays follow the Saturday schedule.</div>
+    <div style="margin-top:4px">Schedule effective 21 March 2026. Both terminals share the same frequency.</div>
+  </footer>
+</div>
+
+<script>
+/* ---- Schedule data (minutes from midnight). Each band: [start, end, freqMinutes].
+   end is exclusive. A band labelled "break" has no service.
+   The early-morning bands (00:00–05:30) belong to the same calendar day. ---- */
+const SUN_THU = [
+  [330, 360, 15],   // 05:30–06:00
+  [360, 420, 10],   // 06:00–07:00
+  [420, 480, 5],    // 07:00–08:00
+  [480, 1440, 10],  // 08:00–00:00
+  [0, 30, 15],      // 00:00–00:30
+  [30, 120, 30],    // 00:30–02:00
+  [120, 300, 60],   // 02:00–05:00
+  [300, 330, 30],   // 05:00–05:30
+];
+const FRIDAY = [
+  [330, 480, 15],   // 05:30–08:00
+  [480, 720, 10],   // 08:00–12:00
+  [720, 810, 0, true], // 12:00–13:30 Friday Prayer Break
+  [810, 1050, 10],  // 13:30–17:30
+  [1050, 1140, 5],  // 17:30–19:00
+  [1140, 1440, 10], // 19:00–00:00
+  [0, 30, 15],
+  [30, 120, 30],
+  [120, 300, 60],
+  [300, 330, 30],
+];
+const SATURDAY = [
+  [330, 480, 15],   // 05:30–08:00
+  [480, 1040, 10],  // 08:00–17:20
+  [1050, 1130, 5],  // 17:30–18:50
+  [1130, 1440, 10], // 18:50–00:00
+  [0, 30, 15],
+  [30, 120, 30],
+  [120, 300, 60],
+  [300, 330, 30],
+];
+
+const WEEKDAY_INDEX = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+
+function scheduleFor(weekdayName){
+  const i = WEEKDAY_INDEX[weekdayName];
+  if(i===5) return {sched:FRIDAY, label:"Friday schedule"};
+  if(i===6) return {sched:SATURDAY, label:"Saturday / holiday schedule"};
+  return {sched:SUN_THU, label:"Sunday–Thursday schedule"};
+}
+
+/* Build sorted list of departure minutes for a day-type */
+function departures(sched){
+  const set = new Set();
+  for(const [start,end,freq,brk] of sched){
+    if(brk) continue;
+    set.add(start);                 // band start is always a departure
+    for(let t=start; t<end; t+=freq) set.add(t);
+  }
+  return [...set].sort((a,b)=>a-b);
+}
+
+/* Current frequency band label, or null if in a break */
+function currentFreq(sched, mins){
+  for(const [start,end,freq,brk] of sched){
+    if(mins>=start && mins<end){
+      if(brk) return "Prayer break — no service";
+      return "every " + (freq>=60 ? (freq/60)+" hr" : freq+" min");
+    }
+  }
+  return "—";
+}
+
+function pad(n){return String(n).padStart(2,'0');}
+function fmtHM(mins){ mins=((mins%1440)+1440)%1440; return pad(Math.floor(mins/60))+":"+pad(mins%60); }
+
+function maldivesParts(){
+  const fmt = new Intl.DateTimeFormat('en-GB',{
+    timeZone:'Indian/Maldives', weekday:'long', year:'numeric', month:'short',
+    day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+  });
+  const p = {};
+  for(const part of fmt.formatToParts(new Date())) p[part.type]=part.value;
+  return p;
+}
+
+function nextDepartures(nowSec, weekdayName, count){
+  const today = scheduleFor(weekdayName).sched;
+  const tomorrowName = Object.keys(WEEKDAY_INDEX).find(k=>WEEKDAY_INDEX[k]===(WEEKDAY_INDEX[weekdayName]+1)%7);
+  const tomorrow = scheduleFor(tomorrowName).sched;
+
+  const pool = [];
+  for(const m of departures(today)) pool.push(m*60);
+  for(const m of departures(tomorrow)) pool.push(m*60 + 86400);
+
+  const out = pool.filter(s=>s>=nowSec).slice(0,count);
+  return out; // seconds-of-(today)
+}
+
+function render(){
+  const p = maldivesParts();
+  const h=+p.hour, m=+p.minute, s=+p.second;
+  const nowSec = h*3600 + m*60 + s;
+
+  document.getElementById('date').textContent = `${p.weekday}, ${p.day} ${p.month} ${p.year}`;
+  document.getElementById('time').textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+
+  const sf = scheduleFor(p.weekday);
+  document.getElementById('daytype').textContent = sf.label;
+  document.getElementById('freqnow').textContent = currentFreq(sf.sched, h*60+m);
+
+  const deps = nextDepartures(nowSec, p.weekday, 5);
+
+  // Both terminals share the same schedule
+  for(const dir of [['male','male'],['vili','vili']]){
+    const prefix = dir[0];
+    if(deps.length===0){
+      document.getElementById(prefix+'-next').textContent = '—';
+      document.getElementById(prefix+'-count').textContent = 'No service';
+      document.getElementById(prefix+'-upcoming').innerHTML='';
+      continue;
+    }
+    const nextSec = deps[0];
+    document.getElementById(prefix+'-next').textContent = fmtHM(Math.round((nextSec%86400)/60));
+
+    const diff = nextSec - nowSec;
+    const cEl = document.getElementById(prefix+'-count');
+    if(diff<=30){
+      cEl.textContent = 'Departing now';
+      cEl.className='countdown soon';
+    } else {
+      const mm = Math.floor(diff/60), ss = diff%60;
+      cEl.textContent = mm>=60
+        ? `in ${Math.floor(mm/60)}h ${mm%60}m`
+        : `in ${mm}m ${pad(ss)}s`;
+      cEl.className = 'countdown' + (mm<5 ? ' soon' : '');
+    }
+
+    const up = document.getElementById(prefix+'-upcoming');
+    up.innerHTML = deps.slice(1).map(sec =>
+      `<span class="pill">${fmtHM(Math.round((sec%86400)/60))}</span>`
+    ).join('');
+  }
+}
+
+render();
+setInterval(render, 1000);
+</script>
+</body>
+</html>
