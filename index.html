@@ -101,72 +101,92 @@
   </div>
 
   <footer>
-    <div>Current frequency: <span class="freq" id="freqnow">—</span></div>
+    <div>Next interval: <span class="freq" id="freqnow">—</span></div>
     <div style="margin-top:8px">Times shown in Maldives time (UTC+5). Public holidays follow the Saturday schedule.</div>
-    <div style="margin-top:4px">Malé times: MTCC frequency schedule (eff. 21 Mar 2026). Vilimalé times derived (departs 10–15 min ahead).</div>
+    <div style="margin-top:4px">Exact timetable — MTCC Villi-Malé Ferry (July 2022). Listed departures for each terminal.</div>
   </footer>
 </div>
 
 <script>
-/* ---- Schedule data (minutes from midnight). Each band: [start, end, freqMinutes].
-   end is exclusive. A band labelled "break" has no service.
-   The early-morning bands (00:00–05:30) belong to the same calendar day. ---- */
-const SUN_THU = [
-  [330, 360, 15],   // 05:30–06:00
-  [360, 420, 10],   // 06:00–07:00
-  [420, 480, 5],    // 07:00–08:00
-  [480, 1440, 10],  // 08:00–00:00
-  [0, 30, 15],      // 00:00–00:30
-  [30, 120, 30],    // 00:30–02:00
-  [120, 300, 60],   // 02:00–05:00
-  [300, 330, 30],   // 05:00–05:30
-];
-const FRIDAY = [
-  [330, 480, 15],   // 05:30–08:00
-  [480, 720, 10],   // 08:00–12:00
-  [720, 810, 0, true], // 12:00–13:30 Friday Prayer Break
-  [810, 1050, 10],  // 13:30–17:30
-  [1050, 1140, 5],  // 17:30–19:00
-  [1140, 1440, 10], // 19:00–00:00
-  [0, 30, 15],
-  [30, 120, 30],
-  [120, 300, 60],
-  [300, 330, 30],
-];
-const SATURDAY = [
-  [330, 480, 15],   // 05:30–08:00
-  [480, 1040, 10],  // 08:00–17:20
-  [1050, 1130, 5],  // 17:30–18:50
-  [1130, 1440, 10], // 18:50–00:00
-  [0, 30, 15],
-  [30, 120, 30],
-  [120, 300, 60],
-  [300, 330, 30],
-];
+/* ---- Exact timetable from MTCC Villi-Malé Ferry Schedule (July 2022).
+   Each day-type lists explicit departure times per terminal, in clock order.
+   Times after midnight (0:05 … 5:45) belong to that same operating day's early morning. ---- */
+const T = {
+  weekday: {
+    mle: `6:00 6:10 6:20 6:30 6:35 6:40 6:45 6:50 6:55 7:00 7:05 7:10 7:15 7:20 7:25 7:30 7:35 7:40 7:45 7:50 7:55
+          8:00 8:05 8:15 8:25 8:35 8:45 8:55 9:05 9:15 9:25 9:35 9:45 9:55 10:05 10:15 10:25 10:35 10:45 10:55
+          11:05 11:15 11:25 11:35 11:45 11:55 12:05 12:15 12:25 12:35 12:45 12:50 12:55 13:00 13:05 13:10 13:15
+          13:25 13:35 13:45 13:55 14:05 14:15 14:25 14:35 14:45 14:55 15:05 15:15 15:25 15:35 15:45 15:55 16:05
+          16:15 16:25 16:35 16:45 16:55 17:05 17:15 17:25 17:35 17:45 17:50 17:55 18:00 18:05 18:10 18:15 18:20
+          18:25 18:30 18:35 18:40 18:45 18:55 19:05 19:15 19:25 19:35 19:45 19:55 20:05 20:15 20:25 20:35 20:45
+          20:55 21:05 21:15 21:25 21:35 21:45 21:55 22:05 22:15 22:25 22:35 22:45 22:55 23:05 23:15 23:25 23:35
+          23:45 23:55 0:05 0:15 0:30 0:45 1:15 1:45 2:15 3:15 4:15 5:15 5:45`,
+    vil: `5:45 6:00 6:10 6:20 6:25 6:30 6:35 6:40 6:45 6:50 6:55 7:00 7:05 7:10 7:15 7:20 7:25 7:30 7:35 7:40 7:45
+          7:50 7:55 8:00 8:10 8:20 8:30 8:40 8:50 9:00 9:10 9:20 9:30 9:40 9:50 10:00 10:10 10:20 10:30 10:40
+          10:50 11:00 11:10 11:20 11:30 11:40 11:50 12:00 12:10 12:20 12:30 12:35 12:40 12:45 12:50 12:55 13:00
+          13:10 13:20 13:30 13:40 13:50 14:00 14:10 14:20 14:30 14:40 14:50 15:00 15:10 15:20 15:30 15:40 15:50
+          16:00 16:10 16:20 16:30 16:40 16:50 17:00 17:10 17:20 17:30 17:35 17:40 17:45 17:50 17:55 18:00 18:05
+          18:10 18:15 18:20 18:25 18:30 18:40 18:50 19:00 19:10 19:20 19:30 19:40 19:50 20:00 20:10 20:20 20:30
+          20:40 20:50 21:00 21:10 21:20 21:30 21:40 21:50 22:00 22:10 22:20 22:30 22:40 22:50 23:00 23:10 23:20
+          23:30 23:40 23:50 0:00 0:15 0:30 1:00 1:30 2:00 3:00 4:00 5:00 5:30`,
+  },
+  friday: {
+    mle: `6:00 6:15 6:30 6:45 7:00 7:15 7:30 7:45 8:00 8:15 8:25 8:35 8:45 8:55 9:05 9:15 9:25 9:35 9:45 9:55
+          10:05 10:15 10:25 10:35 10:45 10:55 11:05 11:15 11:25 11:35 11:45 11:55 12:05 12:15
+          13:45 13:55 14:05 14:15 14:25 14:35 14:45 14:55 15:05 15:15 15:25 15:35 15:45 15:55 16:05 16:15 16:25
+          16:35 16:45 16:55 17:05 17:15 17:25 17:35 17:45 17:50 17:55 18:00 18:05 18:10 18:15 18:20 18:25 18:30
+          18:35 18:40 18:45 18:50 18:55 19:00 19:05 19:10 19:15 19:25 19:35 19:45 19:55 20:05 20:15 20:25 20:35
+          20:45 20:55 21:05 21:15 21:25 21:35 21:45 21:55 22:05 22:15 22:25 22:35 22:45 22:55 23:05 23:15 23:25
+          23:35 23:45 23:55 0:05 0:15 0:30 0:45 1:15 1:45 2:15 3:15 4:15 5:15 5:45`,
+    vil: `5:45 6:00 6:15 6:30 6:45 7:00 7:15 7:30 7:45 8:00 8:10 8:20 8:30 8:40 8:50 9:00 9:10 9:20 9:30 9:40
+          9:50 10:00 10:10 10:20 10:30 10:40 10:50 11:00 11:10 11:20 11:30 11:40 11:50 12:00
+          13:30 13:40 13:50 14:00 14:10 14:20 14:30 14:40 14:50 15:00 15:10 15:20 15:30 15:40 15:50 16:00 16:10
+          16:20 16:30 16:40 16:50 17:00 17:10 17:20 17:30 17:35 17:40 17:45 17:50 17:55 18:00 18:05 18:10 18:15
+          18:20 18:25 18:30 18:35 18:40 18:45 18:50 18:55 19:00 19:10 19:20 19:30 19:40 19:50 20:00 20:10 20:20
+          20:30 20:40 20:50 21:00 21:10 21:20 21:30 21:40 21:50 22:00 22:10 22:20 22:30 22:40 22:50 23:00 23:10
+          23:20 23:30 23:40 23:50 0:00 0:15 0:30 1:00 1:30 2:00 3:00 4:00 5:00 5:30`,
+  },
+  saturday: {
+    mle: `6:00 6:15 6:30 6:45 7:00 7:15 7:25 7:35 7:45 8:00 8:15 8:25 8:35 8:45 8:55 9:05 9:15 9:25 9:35 9:45
+          9:55 10:05 10:15 10:25 10:35 10:45 10:55 11:05 11:15 11:25 11:35 11:45 11:55 12:05 12:15 12:25 12:35
+          12:45 12:55 13:05 13:15 13:25 13:35 13:45 13:55 14:05 14:15 14:25 14:35 14:45 14:55 15:05 15:15 15:25
+          15:35 15:45 15:55 16:05 16:15 16:25 16:35 16:45 16:55 17:05 17:15 17:25 17:35 17:45 17:50 17:55 18:00
+          18:05 18:10 18:15 18:20 18:25 18:30 18:35 18:40 18:45 18:50 18:55 19:00 19:05 19:10 19:15 19:25 19:35
+          19:45 19:55 20:05 20:15 20:25 20:35 20:45 20:55 21:05 21:15 21:25 21:35 21:45 21:55 22:05 22:15 22:25
+          22:35 22:45 22:55 23:05 23:15 23:25 23:35 23:45 23:55 0:05 0:15 0:30 0:45 1:15 1:45 2:15 3:15 4:15
+          5:15 5:45`,
+    vil: `5:45 6:00 6:15 6:30 6:45 7:00 7:10 7:20 7:30 7:45 8:00 8:10 8:20 8:30 8:40 8:50 9:00 9:10 9:20 9:30
+          9:40 9:50 10:00 10:10 10:20 10:30 10:40 10:50 11:00 11:10 11:20 11:30 11:40 11:50 12:00 12:10 12:20
+          12:30 12:40 12:50 13:00 13:10 13:20 13:30 13:40 13:50 14:00 14:10 14:20 14:30 14:40 14:50 15:00 15:10
+          15:20 15:30 15:40 15:50 16:00 16:10 16:20 16:30 16:40 16:50 17:00 17:10 17:20 17:30 17:35 17:40 17:45
+          17:50 17:55 18:00 18:05 18:10 18:15 18:20 18:25 18:30 18:35 18:40 18:45 18:50 18:55 19:00 19:10 19:20
+          19:30 19:40 19:50 20:00 20:10 20:20 20:30 20:40 20:50 21:00 21:10 21:20 21:30 21:40 21:50 22:00 22:10
+          22:20 22:30 22:40 22:50 23:00 23:10 23:20 23:30 23:40 23:50 0:00 0:15 0:30 1:00 1:30 2:00 3:00 4:00
+          5:00 5:30`,
+  },
+};
 
 const WEEKDAY_INDEX = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
 
+/* Parse a list of "H:MM" strings into minutes-of-day */
+function toMinutes(str){
+  return str.trim().split(/\s+/).map(s=>{
+    const [h,m] = s.split(':').map(Number);
+    return h*60 + m;
+  });
+}
+const SCHED = {
+  weekday:  {mle: toMinutes(T.weekday.mle),  vil: toMinutes(T.weekday.vil),  label:"Sunday–Thursday schedule"},
+  friday:   {mle: toMinutes(T.friday.mle),   vil: toMinutes(T.friday.vil),   label:"Friday schedule"},
+  saturday: {mle: toMinutes(T.saturday.mle), vil: toMinutes(T.saturday.vil), label:"Saturday / holiday schedule"},
+};
+
 function scheduleFor(weekdayName){
   const i = WEEKDAY_INDEX[weekdayName];
-  if(i===5) return {sched:FRIDAY, label:"Friday schedule"};
-  if(i===6) return {sched:SATURDAY, label:"Saturday / holiday schedule"};
-  return {sched:SUN_THU, label:"Sunday–Thursday schedule"};
+  if(i===5) return SCHED.friday;
+  if(i===6) return SCHED.saturday;
+  return SCHED.weekday;
 }
-
-/* Departures for a day-type as [{min, freq}] (Malé reference times) */
-function departuresFor(sched){
-  const map = new Map();            // minute -> frequency of its band
-  for(const [start,end,freq,brk] of sched){
-    if(brk) continue;
-    if(!map.has(start)) map.set(start, freq);   // band start is always a departure
-    for(let t=start; t<end; t+=freq) if(!map.has(t)) map.set(t, freq);
-  }
-  return [...map.entries()].map(([min,freq])=>({min,freq})).sort((a,b)=>a.min-b.min);
-}
-
-/* Vilimalé departs ahead of Malé — wider lead when service is sparse
-   (derived from the July 2022 timetable: ~10 min in frequent bands, ~15 min in sparse). */
-function viliOffset(freq){ return freq <= 10 ? 10 : 15; }
 
 /* Build second-of-day departure pools for both terminals across
    yesterday / today / tomorrow so the "next" search never misses a wrap-around. */
@@ -176,25 +196,17 @@ function buildPools(weekdayName){
   const male = [], vili = [];
   for(const [offsetDays, name] of [[-1, dayName(idx-1)], [0, weekdayName], [1, dayName(idx+1)]]){
     const base = offsetDays * 86400;
-    for(const d of departuresFor(scheduleFor(name).sched)){
-      male.push(d.min*60 + base);
-      vili.push((d.min - viliOffset(d.freq))*60 + base);
-    }
+    const sched = scheduleFor(name);
+    for(const m of sched.mle) male.push(m*60 + base);
+    for(const m of sched.vil) vili.push(m*60 + base);
   }
   male.sort((a,b)=>a-b);
   vili.sort((a,b)=>a-b);
   return {male, vili};
 }
 
-/* Current frequency band label, or null if in a break */
-function currentFreq(sched, mins){
-  for(const [start,end,freq,brk] of sched){
-    if(mins>=start && mins<end){
-      if(brk) return "Prayer break — no service";
-      return "every " + (freq>=60 ? (freq/60)+" hr" : freq+" min");
-    }
-  }
-  return "—";
+function upcoming(pool, nowSec, count){
+  return pool.filter(s => s >= nowSec).slice(0, count);
 }
 
 function pad(n){return String(n).padStart(2,'0');}
@@ -210,10 +222,6 @@ function maldivesParts(){
   return p;
 }
 
-function upcoming(pool, nowSec, count){
-  return pool.filter(s => s >= nowSec).slice(0, count);
-}
-
 function render(){
   const p = maldivesParts();
   const h=+p.hour, m=+p.minute, s=+p.second;
@@ -221,10 +229,7 @@ function render(){
 
   document.getElementById('date').textContent = `${p.weekday}, ${p.day} ${p.month} ${p.year}`;
   document.getElementById('time').textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
-
-  const sf = scheduleFor(p.weekday);
-  document.getElementById('daytype').textContent = sf.label;
-  document.getElementById('freqnow').textContent = currentFreq(sf.sched, h*60+m);
+  document.getElementById('daytype').textContent = scheduleFor(p.weekday).label;
 
   const pools = buildPools(p.weekday);
 
@@ -257,6 +262,11 @@ function render(){
       `<span class="pill">${fmtHM(Math.round((sec%86400)/60))}</span>`
     ).join('');
   }
+
+  // "Next interval" = gap between the next two Malé departures
+  const mUp = upcoming(pools.male, nowSec, 2);
+  document.getElementById('freqnow').textContent =
+    mUp.length<2 ? '—' : `~${Math.round((mUp[1]-mUp[0])/60)} min between ferries`;
 }
 
 render();
