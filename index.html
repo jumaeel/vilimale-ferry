@@ -103,7 +103,7 @@
   <footer>
     <div>Current frequency: <span class="freq" id="freqnow">—</span></div>
     <div style="margin-top:8px">Times shown in Maldives time (UTC+5). Public holidays follow the Saturday schedule.</div>
-    <div style="margin-top:4px">Schedule effective 21 March 2026. Both terminals share the same frequency.</div>
+    <div style="margin-top:4px">Malé times: MTCC frequency schedule (eff. 21 Mar 2026). Vilimalé times derived (departs 10–15 min ahead).</div>
   </footer>
 </div>
 
@@ -153,15 +153,37 @@ function scheduleFor(weekdayName){
   return {sched:SUN_THU, label:"Sunday–Thursday schedule"};
 }
 
-/* Build sorted list of departure minutes for a day-type */
-function departures(sched){
-  const set = new Set();
+/* Departures for a day-type as [{min, freq}] (Malé reference times) */
+function departuresFor(sched){
+  const map = new Map();            // minute -> frequency of its band
   for(const [start,end,freq,brk] of sched){
     if(brk) continue;
-    set.add(start);                 // band start is always a departure
-    for(let t=start; t<end; t+=freq) set.add(t);
+    if(!map.has(start)) map.set(start, freq);   // band start is always a departure
+    for(let t=start; t<end; t+=freq) if(!map.has(t)) map.set(t, freq);
   }
-  return [...set].sort((a,b)=>a-b);
+  return [...map.entries()].map(([min,freq])=>({min,freq})).sort((a,b)=>a.min-b.min);
+}
+
+/* Vilimalé departs ahead of Malé — wider lead when service is sparse
+   (derived from the July 2022 timetable: ~10 min in frequent bands, ~15 min in sparse). */
+function viliOffset(freq){ return freq <= 10 ? 10 : 15; }
+
+/* Build second-of-day departure pools for both terminals across
+   yesterday / today / tomorrow so the "next" search never misses a wrap-around. */
+function buildPools(weekdayName){
+  const idx = WEEKDAY_INDEX[weekdayName];
+  const dayName = d => Object.keys(WEEKDAY_INDEX).find(k => WEEKDAY_INDEX[k] === ((d%7)+7)%7);
+  const male = [], vili = [];
+  for(const [offsetDays, name] of [[-1, dayName(idx-1)], [0, weekdayName], [1, dayName(idx+1)]]){
+    const base = offsetDays * 86400;
+    for(const d of departuresFor(scheduleFor(name).sched)){
+      male.push(d.min*60 + base);
+      vili.push((d.min - viliOffset(d.freq))*60 + base);
+    }
+  }
+  male.sort((a,b)=>a-b);
+  vili.sort((a,b)=>a-b);
+  return {male, vili};
 }
 
 /* Current frequency band label, or null if in a break */
@@ -188,17 +210,8 @@ function maldivesParts(){
   return p;
 }
 
-function nextDepartures(nowSec, weekdayName, count){
-  const today = scheduleFor(weekdayName).sched;
-  const tomorrowName = Object.keys(WEEKDAY_INDEX).find(k=>WEEKDAY_INDEX[k]===(WEEKDAY_INDEX[weekdayName]+1)%7);
-  const tomorrow = scheduleFor(tomorrowName).sched;
-
-  const pool = [];
-  for(const m of departures(today)) pool.push(m*60);
-  for(const m of departures(tomorrow)) pool.push(m*60 + 86400);
-
-  const out = pool.filter(s=>s>=nowSec).slice(0,count);
-  return out; // seconds-of-(today)
+function upcoming(pool, nowSec, count){
+  return pool.filter(s => s >= nowSec).slice(0, count);
 }
 
 function render(){
@@ -213,11 +226,10 @@ function render(){
   document.getElementById('daytype').textContent = sf.label;
   document.getElementById('freqnow').textContent = currentFreq(sf.sched, h*60+m);
 
-  const deps = nextDepartures(nowSec, p.weekday, 5);
+  const pools = buildPools(p.weekday);
 
-  // Both terminals share the same schedule
-  for(const dir of [['male','male'],['vili','vili']]){
-    const prefix = dir[0];
+  for(const [prefix, pool] of [['male', pools.male], ['vili', pools.vili]]){
+    const deps = upcoming(pool, nowSec, 5);
     if(deps.length===0){
       document.getElementById(prefix+'-next').textContent = '—';
       document.getElementById(prefix+'-count').textContent = 'No service';
